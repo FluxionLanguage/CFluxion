@@ -14,11 +14,10 @@ typedef enum {
     NUMBER,
     FINITE,
     BUILDER,
-    RULE,
     MATRIX,
     SEQUENCE,
     EXPRESSION,
-    OPERATION,
+    OPERATOR,
     IDENTIFIER
 } TokenType;
 
@@ -29,18 +28,6 @@ typedef struct {
     int lineCount;
     TokenType tokenType;
 } Token;
-
-
-
-
-/**
- * Initialise a token given
- * @param token the newly allocated token.
- * @param lineCount line the token appears in.
- * @param tokenType type of the token.
- */
-Token *initToken(int lineCount, TokenType tokenType);
-void freeToken(Token *token);
 
 /**
  * Represent any identifier.
@@ -74,9 +61,28 @@ typedef struct {
     int arity;
 } FunctionToken;
 
+/**
+ * Initialise the function token, given
+ * @param lineCount Line the token appeared in.
+ * @param name Name of the identifier.
+ * @return the pointer to the newly created function
+ */
 FunctionToken *initFunctionToken(int lineCount, const char *name);
+/**
+ * Free the function token.
+ * @param token Token to free.
+ */
 void freeFunctionToken(FunctionToken *token);
+/**
+ * Add an argument to the function.
+ * @param token Pointer to function token.
+ * @param arg Argument to add.
+ */
 void addArgument(FunctionToken *token, Token *arg);
+/**
+ * Finalise the function token. By trimming it.
+ * @param token Token to finalise
+ */
 void finaliseFunctionToken(FunctionToken *token);
 
 /**
@@ -136,6 +142,7 @@ Token *matrixGetMember(MatrixToken *token, int row, int col);
  * Is dynamically allocated.
  */
 typedef struct {
+    Token *token;
     Token **members;
     int memberCount;
     int current;
@@ -143,9 +150,9 @@ typedef struct {
 
 /**
  * Initialise the token.
- * @param token Token to initialise.
+ * @param lineCount The line the token was in.
  */
-void initFiniteToken(FiniteToken *token);
+FiniteToken *initFiniteToken(int lineCount);
 /**
  * Free the previously initialised token.
  * @param token to free.
@@ -162,7 +169,28 @@ void finaliseFiniteToken(FiniteToken *token);
  * @param token Token to add into.
  * @param element element to add to.
  */
-void FiniteAddElement(FiniteToken *token, Token *element);
+void finiteAddElement(FiniteToken *token, Token *element);
+
+/**
+ * A typedef that holds operators.
+ */
+typedef struct {
+    Token *token;
+    OperatorType operatorType;
+} OperatorToken;
+
+/**
+ * Initialise a new operator token.
+ * @param lineCount Line the operator appears in.
+ * @param operatorType Type of the operator.
+ * @return Pointer to the newly created operator token.
+ */
+OperatorToken *initOperatorToken(int lineCount, OperatorType operatorType);
+/**
+ * Free the operator token.
+ * @param token
+ */
+void freeOperatorToken(OperatorToken *token);
 
 /**
  * Represents an expression.
@@ -170,11 +198,49 @@ void FiniteAddElement(FiniteToken *token, Token *element);
 typedef struct {
     Token *token;
     Token **tokens;
+    int current;
     int tokenCount;
 } ExpressionToken;
 
-void initExpressionToken(ExpressionToken *token, int tokenCount);
+ExpressionToken *initExpressionToken(int lineCount);
 void freeExpressionToken(ExpressionToken *token);
+void ExpressionAddToken(ExpressionToken *token, Token *t);
+void finaliseExpressionToken(ExpressionToken *token);
 
+/**
+ * A typedef that represents a
+ * set definition using the set
+ * builder notation.
+ */
+typedef struct {
+    Token *token;
+    IdentifierToken *variable; // Part before the |
+    ExpressionToken *constraint; // Part after the |
+} BuilderToken;
+
+BuilderToken *initBuilderToken(int lineCount, IdentifierToken *variable, ExpressionToken *constraint);
+void freeBuilderToken(BuilderToken *token);
+
+/**
+ * The sequence rule declarations
+ * of the form
+ * {1, 1} x_n -> x_{n - 1} + x_{n - 2}
+ */
+typedef struct {
+    Token *token;
+    FiniteToken *prelist; // The before part.
+    IdentifierToken *variable; // x of the x_n
+    IdentifierToken *numerical; //n of the x_n
+    ExpressionToken  *rule; // The actual generation rule.
+} SequenceToken;
+
+SequenceToken *initSequenceToken(int lineCount, FiniteToken* prelist, IdentifierToken* variable, IdentifierToken* numerical, ExpressionToken* rule);
+void freeSequenceToken(SequenceToken *token);
+
+/**
+ * Free a token, with respect to its Token type.
+ * @param token Token to free.
+ */
+void freeToken(Token *token);
 
 #endif //FLUXIONCORE_FLUXION_TOKEN_H

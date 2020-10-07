@@ -6,6 +6,12 @@
 #include <string.h>
 #include "fluxion_token.h"
 
+/**
+ * Initialise a base token given
+ * @param token the newly allocated token.
+ * @param lineCount line the token appears in.
+ * @param tokenType type of the token.
+ */
 Token *initToken(int lineCount, TokenType tokenType) {
     Token *token = (Token*) malloc(sizeof(Token));
     token->lineCount = lineCount;
@@ -13,9 +19,12 @@ Token *initToken(int lineCount, TokenType tokenType) {
     return token;
 }
 
-void freeToken(Token *token) {
+/**
+ * Free the base token, given
+ * @param token Token to free.
+ */
+void freeBaseToken(Token *token) {
     free(token);
-    token = NULL;
 }
 
 IdentifierToken *initIdentifierToken(int lineCount, const char *name) {
@@ -27,11 +36,10 @@ IdentifierToken *initIdentifierToken(int lineCount, const char *name) {
 }
 
 void freeIdentifierToken(IdentifierToken *token) {
-    freeToken(token->token);
+    freeBaseToken(token->token);
     free(token->name); // This will probably went terribly wrong, have you fixed line 24 yet?
     token->name = NULL;
     free(token);
-    token = NULL;
     // Surely this will not segfault
 }
 
@@ -49,7 +57,6 @@ void freeFunctionToken(FunctionToken *token) {
     free(token->args);
     token->args = NULL;
     free(token);
-    token = NULL;
 }
 
 void addArgument(FunctionToken *token, Token *arg) {
@@ -76,9 +83,8 @@ NumberToken *initNumberToken(int lineCount, double value) {
 }
 
 void freeNumberToken(NumberToken *token) {
-    freeToken(token->token);
+    freeBaseToken(token->token);
     free(token);
-    token = NULL;
 }
 
 void mallocMatrixTokenArr(MatrixToken *matrix) {
@@ -102,10 +108,9 @@ MatrixToken *initMatrixToken(int lineCount) {
 void freeMatrixToken(MatrixToken *token) {
     free(token->members);
     token->members = NULL;
-    freeToken(token->token);
+    freeBaseToken(token->token);
     token->token = NULL;
     free(token);
-    token = NULL;
 }
 
 void matrixAddMember(MatrixToken *token, int row, int col, Token *element) {
@@ -114,12 +119,152 @@ void matrixAddMember(MatrixToken *token, int row, int col, Token *element) {
         token->columnSize = col ? col > token->columnSize : token->columnSize;
         mallocMatrixTokenArr(token);
     }
-    * (token->members + (row*col)) = element; // Assign the value.
+    token->members[row * col] = element; // Assign the value.
 }
 
 Token *matrixGetMember(MatrixToken *token, int row, int col) {
     return * (token->members + (row*col));
 }
 
+FiniteToken *initFiniteToken(int lineCount) {
+    FiniteToken *token = (FiniteToken *) malloc(sizeof(FiniteToken));
+    token->token = initToken(lineCount, FINITE);
+    token->memberCount = 4;
+    token->current = 0;
+    token->members = (Token**) malloc(sizeof(Token*) * token->memberCount);
+    return token;
+}
+
+void freeFiniteToken(FiniteToken *token) {
+    freeBaseToken(token->token);
+    token->token = NULL;
+    free(token->members);
+    token->members = NULL;
+    free(token);
+}
+
+void finaliseFiniteToken(FiniteToken *token) {
+    if (token->memberCount > token->current) {
+        token->memberCount = token->current;
+        token->members = (Token**) realloc(token->members, sizeof(Token*) * token->memberCount);
+    }
+}
+void finiteAddElement(FiniteToken *token, Token *element) {
+    if (token->current >= token->memberCount) {
+        token->memberCount *= 2;
+        token->members = (Token**) realloc(token->members, sizeof(Token*) * token->memberCount); // Double.
+    }
+    token->members[token->current++] = element;
+}
+
+OperatorToken *initOperatorToken(int lineCount, OperatorType operatorType) {
+    OperatorToken *token = (OperatorToken*) malloc(sizeof(OperatorToken));
+    token->token = initToken(lineCount, OPERATOR);
+    token->operatorType = operatorType;
+    return token;
+}
+
+void freeOperatorToken(OperatorToken *token) {
+    freeBaseToken(token->token);
+    token->token = NULL;
+    free(token);
+}
+
+BuilderToken *initBuilderToken(int lineCount, IdentifierToken *variable, ExpressionToken *constraint) {
+    BuilderToken *token = (BuilderToken*) malloc(sizeof(BuilderToken));
+    token->token = initToken(lineCount, BUILDER);
+    token->variable = variable;
+    token->constraint = constraint;
+    return token;
+}
+
+void freeBuilderToken(BuilderToken *token) {
+    freeBaseToken(token->token);
+    token->token = NULL;
+    free(token);
+}
+
+SequenceToken *initSequenceToken(int lineCount, FiniteToken* prelist, IdentifierToken* variable, IdentifierToken* numerical, ExpressionToken* rule) {
+    SequenceToken *token = (SequenceToken*) malloc(sizeof(SequenceToken));
+    token->token = initToken(lineCount, SEQUENCE);
+    token->prelist = prelist;
+    token->variable = variable;
+    token->numerical = numerical;
+    token->rule = rule;
+    return token;
+}
+
+void freeSequenceToken(SequenceToken *token) {
+    freeBaseToken(token->token);
+    free(token);
+}
+
+ExpressionToken *initExpressionToken(int lineCount) {
+    ExpressionToken *token = (ExpressionToken *) malloc(sizeof(ExpressionToken));
+    token->token = initToken(lineCount, EXPRESSION);
+    token->tokenCount = 1;
+    token->current = 0;
+    token->tokens = (Token**) malloc(sizeof(Token*) * token->tokenCount);
+    return token;
+}
+
+void freeExpressionToken(ExpressionToken *token) {
+    free(token->tokens);
+    token->tokens = NULL;
+    freeBaseToken(token->token);
+    token->token = NULL;
+    free(token);
+}
+
+void ExpressionAddToken(ExpressionToken *token, Token *t) {
+    if (token->current >= token->tokenCount) {
+        token->tokenCount *= 2;
+        token->tokens = (Token **) malloc(sizeof(Token*) * token->tokenCount);
+    }
+    token->tokens[token->current++] = t;
+}
+
+void finaliseExpressionToken(ExpressionToken *token) {
+    if (token->tokenCount >= token->current) {
+        token->tokenCount = token->current;
+        token->tokens = (Token**) realloc(token->tokens, sizeof(Token*) * token->tokenCount);
+    }
+}
+
+void freeToken(Token *token) {
+    switch (token->tokenType) {
+        case NUMBER:
+            freeNumberToken((NumberToken *) token);
+            break;
+        case FINITE:
+            freeFiniteToken((FiniteToken *) token);
+            break;
+        case BUILDER:
+            freeBuilderToken((BuilderToken *) token);
+            break;
+        case MATRIX:
+            freeMatrixToken((MatrixToken *) token);
+            break;
+        case SEQUENCE:
+            freeSequenceToken((SequenceToken *) token);
+            break;
+        case EXPRESSION:
+            freeExpressionToken((ExpressionToken *) token);
+            break;
+        case OPERATOR:
+            freeOperatorToken((OperatorToken *) token);
+            break;
+        case IDENTIFIER:
+            switch (((IdentifierToken*) token)->identifierType) {
+                case Function:
+                    freeFunctionToken((FunctionToken*) token);
+                    break;
+                case Variable:
+                    freeIdentifierToken((IdentifierToken*) token);
+                    break;
+            }
+            break;
+    }
+}
 
 
