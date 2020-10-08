@@ -160,6 +160,7 @@ OperatorToken *parseOperator(Parser *parser) {
 
 ExpressionToken *parseExpression(Parser *parser, char terminal) {
     TokenStack *tokenStack = initTokenStack(); // A stack just for this expression.
+    Token *token = NULL; // Traversing token pointer;
     while (parserPeek(parser) != terminal) {
         char ch = parserPeek(parser);
         if (isWhitespace(parser)) {
@@ -182,11 +183,15 @@ ExpressionToken *parseExpression(Parser *parser, char terminal) {
             case '_':
             case '^':
                 ; // In C, a case cannot immediately have a definition.
-                OperatorToken *token = parseOperator(parser);
-                if (token != NULL) {
-                    StackPush(tokenStack, (Token *) token);
-                }
+                token = (Token*) parseOperator(parser);
                 break;
+            case '(':
+                parserConsume(parser); // Consume (.
+                token = (Token*) parseExpression(parser, ')');
+                break;
+        }
+        if (token != NULL) {
+            StackPush(tokenStack, (Token*) token);
         }
     }
 }
