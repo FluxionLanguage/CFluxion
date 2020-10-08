@@ -157,6 +157,11 @@ OperatorToken *parseOperator(Parser *parser) {
     }
 }
 
+void parseFunctionArgs(Parser *parser, FunctionToken *functionToken) {
+    while (parserPeek(parser) != ')') {
+        addArgument(functionToken, (Token *) parseExpression(parser, ',')); // TODO: This won't work since expression lists can be chained but there may also be a single expression.
+    }
+}
 
 ExpressionToken *parseExpression(Parser *parser, char terminal) {
     TokenStack *tokenStack = initTokenStack(); // A stack just for this expression.
@@ -164,6 +169,13 @@ ExpressionToken *parseExpression(Parser *parser, char terminal) {
     while (parserPeek(parser) != terminal) {
         char ch = parserPeek(parser);
         if (isWhitespace(parser)) {
+            if (token != NULL && token->tokenType == IDENTIFIER) {//If identifier
+                if (((IdentifierToken *) token)->identifierType == Function) {
+                    finaliseFunctionToken((FunctionToken*) token);
+                }
+                StackPush(tokenStack, token);
+                token = NULL; // We finalised the identifier.
+            }
             continue; // Whitespaces not caught by another rule is cast aside.
         }
         switch (ch) {
@@ -186,12 +198,27 @@ ExpressionToken *parseExpression(Parser *parser, char terminal) {
                 token = (Token*) parseOperator(parser);
                 break;
             case '(':
-                parserConsume(parser); // Consume (.
-                token = (Token*) parseExpression(parser, ')');
+                if (token == NULL) {
+                    parserConsume(parser); // Consume (.
+                    token = (Token *) parseExpression(parser, ')');
+                } else { // Otherwise, call list for function.
+                    // First, convert the identifer to a Function.
+                    FunctionToken *newFunc = initFunctionToken(token->lineCount, ((IdentifierToken*) token)->name);
+                    freeToken(token);
+                    parseFunctionArgs(parser, newFunc);
+                    token = (Token *) newFunc;
+                }
                 break;
+            default: // Identifier
+                if (token == NULL) {
+                    token = (Token*) initIdentifierToken(parser->lineCount, "");
+                }
+                strncpy(((IdentifierToken*) token)->name, parser->ch_, 1);
+                continue;
         }
         if (token != NULL) {
             StackPush(tokenStack, (Token*) token);
+            token = NULL;
         }
     }
 }

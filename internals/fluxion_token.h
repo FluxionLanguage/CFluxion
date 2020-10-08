@@ -34,7 +34,7 @@ typedef struct {
  */
 typedef struct {
     Token *token;
-    const char *name;
+    char *name;
     IdentifierType identifierType;
 } IdentifierToken;
 
