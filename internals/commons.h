@@ -14,31 +14,44 @@ typedef enum {
 
 typedef enum {
     // SCOPE
-    SCOPE,
-    ASSIGN,
+    SCOPE, //::
+    ASSIGN, //:=
     // BOOLEAN
-    LESS,
-    GREATER,
-    LEQ,
-    GEQ,
-    EQUAL,
-    NEQ,
+    LESS, // <
+    GREATER, // >
+    LEQ, // <=
+    GEQ, // >=
+    EQUAL, // =
+    NEQ, //\=
     // MULTI-USE
-    AMPERSAND,
-    BAR,
-    NOT,
+    AMPERSAND, //&
+    BAR, // |
+    NOT, // \
     // DIFFERENTIAL
-    DIFF,
-    LIMIT,
+    DIFF, //'
+    LIMIT, // ->
     // SETS, SEQUENCES
-    IN,
-    GET,
+    IN, //in
+    GET, // _
     // ALGEBRAIC
-    PLUS,
-    MINUS,
-    MULTIPLY,
-    POWER,
-    FACTORIAL
+    PLUS, // +
+    MINUS, // -
+    MULTIPLY, // *
+    DIVIDE, // /
+    POWER, // ^
+    FACTORIAL // !
 } OperatorType;
 
+typedef enum {
+    Undefined,
+    Indeterminate,
+    Overflow
+} ErrorLiteral;
+
+typedef struct {
+    ErrorLiteral errorLiteral; // Represents the error type.
+    const char *errorMessage; // Represents the error message.
+} Error;
+
+void issueError(Error *error);
 #endif //FLUXIONCORE_COMMONS_H

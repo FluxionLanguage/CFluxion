@@ -22,20 +22,29 @@ typedef struct {
     char *ch_;
     bool ignoreEOL;
     int lineCount;
-    TokenStack stack;
+    TokenStack *stack;
 } Parser;
 
 
 void parserConsume(Parser *parser);
 char parserPeek(Parser *parser);
 char parserPop(Parser *parser);
+char parserDoublePeek(Parser *parser);
+void parserRewind(Parser *parser);
+
+void issueParserError(Parser *parser, ErrorLiteral literal, const char *message);
 
 bool isDigit(Parser *parser);
 bool isWhitespace(Parser *parser);
 bool isEOL(Parser *Parser);
 
-ExpressionToken *parseExpression(Parser *parser);
-NumberToken *parseNumber(Parser *parser);
+/**
+ * Parse an expression.
+ * Push it to the token stack.
+ * @param parser
+ * @param terminal Character the expression will end on.
+ */
+ExpressionToken *parseExpression(Parser *parser, char terminal);
 Parser *parse(const char *source);
 Token **getTokens(Parser *parser);
 int getTokenCount(Parser *parser);
