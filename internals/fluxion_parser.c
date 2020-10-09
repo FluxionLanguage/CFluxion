@@ -80,6 +80,17 @@ bool isCharTerminator(char c) {
     return c == ' ' || c == '\t' || c == '\n' || c == '\0';
 }
 
+bool isCharInStr(char c, const char *str) {
+    char *ptr = str;
+    while (*ptr) {
+        if (c == *ptr) {
+            return true;
+        }
+        ptr++;
+    }
+    return false;
+}
+
 NumberToken *parseNumber(Parser *parser) {
     char *number = "";
     while (!isEOL(parser) && !isWhitespace(parser) && (isDigit(parser) || parserPeek(parser) == '.')) {
@@ -157,16 +168,78 @@ OperatorToken *parseOperator(Parser *parser) {
     }
 }
 
-void parseFunctionArgs(Parser *parser, FunctionToken *functionToken) {
-    while (parserPeek(parser) != ')') {
-        addArgument(functionToken, (Token *) parseExpression(parser, ',')); // TODO: This won't work since expression lists can be chained but there may also be a single expression.
+/**
+ * Consume a singleline comment, discard it.
+ * @param parser Parser pointer.
+ */
+void consumeComment(Parser *parser) {
+    while (parserPeek(parser) != '\n') {
+        parserConsume(parser);
     }
 }
 
-ExpressionToken *parseExpression(Parser *parser, char terminal) {
+void consumeMultilineComment(Parser *parser) {
+    do {
+        char c = parserPop(parser);
+        if (c == '*' && parserPeek(parser) == ';') {
+            parserConsume(parser);
+            break;
+        }
+    } while (true);
+}
+
+void parseFunctionArgs(Parser *parser, FunctionToken *functionToken) {
+    while (parserPeek(parser) != ')') {
+        if (parser->ignoreEOL && parserPeek(parser) != '\n') {
+            issueParserError(parser, Undefined, "Expected new line.");
+        }
+        switch (parserPeek(parser)) {
+            case '\0':
+                issueParserError(parser, Undefined, "Expected ).");
+            case '\\':
+                if (parserDoublePeek(parser) == '\\') { // Might be line converter.
+                    parser->ignoreEOL = true;
+                    parserConsume(parser);
+                    parserConsume(parser);
+                } else {
+                    addArgument(functionToken, (Token *) parseExpression(parser, ",)")); // Might be start of not.
+                }
+                break;
+            case ';':
+                parserConsume(parser);
+                switch (parserDoublePeek(parser)) {
+                    case ';':
+                        parserConsume(parser);
+                        consumeComment(parser);
+                        break;
+                    case '*':
+                        parserConsume(parser);
+                        consumeMultilineComment(parser);
+                        break;
+                    default:
+                        issueParserError(parser, Undefined, "Expected ; or *");
+                        break;
+                }
+                break;
+            case '\n':
+                if (parser->ignoreEOL) {
+                    parser->ignoreEOL = false;
+                    parserConsume(parser);
+                } else {
+                    issueParserError(parser, Undefined, "Expected )");
+                }
+                break;
+            default:
+                addArgument(functionToken, (Token *) parseExpression(parser, ",)"));
+        }
+
+    }
+}
+
+ExpressionToken *parseExpression(Parser *parser, const char *terminals) {
     TokenStack *tokenStack = initTokenStack(); // A stack just for this expression.
     Token *token = NULL; // Traversing token pointer;
-    while (parserPeek(parser) != terminal) {
+    while (isCharInStr(parserPeek(parser), terminals)) {
         char ch = parserPeek(parser);
         if (isWhitespace(parser)) {
             if (token != NULL && token->tokenType == IDENTIFIER) {//If identifier
@@ -177,11 +250,20 @@ ExpressionToken *parseExpression(Parser *parser, char terminal) {
                 token = NULL; // We finalised the identifier.
             }
             continue; // Whitespaces not caught by another rule is cast aside.
+        } else if (parser->ignoreEOL && ch != '\n') {
+            issueParserError(parser, Undefined, "Expected new line.");
         }
         switch (ch) {
             case '+':
             case '-':
             case '\\':
+                if (parserDoublePeek(parser) == '\\') {
+                    if (parser->ignoreEOL) {
+                        issueParserError(parser, Undefined, "Expected new line.");
+                    }
+                    parser->ignoreEOL = true;
+                    break;
+                }
             case '*':
             case '/':
             case '&':
@@ -200,7 +282,7 @@ ExpressionToken *parseExpression(Parser *parser, char terminal) {
             case '(':
                 if (token == NULL) {
                     parserConsume(parser); // Consume (.
-                    token = (Token *) parseExpression(parser, ')');
+                    token = (Token *) parseExpression(parser, ")");
                 } else { // Otherwise, call list for function.
                     // First, convert the identifer to a Function.
                     FunctionToken *newFunc = initFunctionToken(token->lineCount, ((IdentifierToken*) token)->name);

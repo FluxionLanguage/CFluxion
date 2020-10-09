@@ -44,7 +44,7 @@ bool isEOL(Parser *Parser);
  * @param parser
  * @param terminal Character the expression will end on.
  */
-ExpressionToken *parseExpression(Parser *parser, char terminal);
+ExpressionToken *parseExpression(Parser *parser, const char *terminal);
 Parser *parse(const char *source);
 Token **getTokens(Parser *parser);
 int getTokenCount(Parser *parser);
